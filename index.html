@@ -96,10 +96,10 @@
 
         <!-- Tombol Interaksi Musik & Eksplorasi -->
         <div class="space-y-3 pt-4 border-t border-amber-900/20">
-            <button id="btn-audio" onclick="toggleMeditationMusic()" class="w-full bg-amber-950/50 hover:bg-amber-900/50 border border-amber-500/30 text-amber-300 font-semibold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center space-x-2 text-sm">
-                <i class="fa-solid fa-music text-amber-400 animate-pulse"></i>
-                <span id="audio-text">Nyalakan Musik Meditasi</span>
-            </button>
+            <button id="btn-audio" onclick="toggleVO('narasi_borobudur.mp3')" class="w-full bg-amber-950/50 hover:bg-amber-900/50 border border-amber-500/30 text-amber-300 font-semibold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center space-x-2 text-sm">
+            <i id="audio-icon" class="fa-solid fa-microphone text-amber-400"></i>
+            <span id="audio-text">Nyalakan Voice Over</span>
+        </button>
             <div class="grid grid-cols-2 gap-2 text-center text-xs">
                 <div class="bg-slate-900/60 py-2 px-3 rounded-lg border border-slate-800">
                     <span class="block text-amber-400 font-bold" id="stupa-count">72</span>
@@ -178,6 +178,44 @@
         
         // Array untuk menyimpan referensi lampu taman agar bisa dinyalakan/dimatikan sesuai waktu hari
         let gardenLights = [];
+
+        // Voice Over dan Array
+
+            let currentAudio = null;
+        let isPlaying = false;
+
+        function toggleVO(url) {
+            const btnText = document.getElementById('audio-text');
+            const btnIcon = document.getElementById('audio-icon');
+
+            if (isPlaying) {
+                // Hentikan audio
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                }
+                isPlaying = false;
+                btnText.innerText = "Nyalakan Voice Over";
+                btnIcon.className = "fa-solid fa-microphone text-amber-400";
+            } else {
+                // Putar audio
+                if (currentAudio) currentAudio.pause();
+                
+                currentAudio = new Audio(url);
+                currentAudio.play().then(() => {
+                    isPlaying = true;
+                    btnText.innerText = "Hentikan Voice Over";
+                    btnIcon.className = "fa-solid fa-stop text-amber-400 animate-pulse";
+                }).catch(e => console.error("Gagal memutar audio:", e));
+
+                // Reset tombol saat audio selesai
+                currentAudio.onended = () => {
+                    isPlaying = false;
+                    btnText.innerText = "Nyalakan Voice Over";
+                    btnIcon.className = "fa-solid fa-microphone text-amber-400";
+                };
+            }
+        }
 
         // Informasi Tingkatan Borobudur (Kamadhatu, Rupadhatu, Arupadhatu)
         const levelsInfo = {
