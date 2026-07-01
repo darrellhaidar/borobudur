@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Reality Borobudur - Candi Agung Interaktif</title>
+    <!-- Tailwind CSS untuk UI premium -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter & Playfair Display -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,600;0,800;1,400&display=swap" rel="stylesheet">
+    <!-- Font Awesome untuk ikon modern -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls untuk eksplorasi kamera yang mudah -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .serif-title {
+            font-family: 'Playfair Display', serif;
+        }
+        /* Custom scrollbar untuk panel info */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(212, 163, 89, 0.4);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(212, 163, 89, 0.7);
+        }
+        /* Mode VR split screen */
+        .vr-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Glow effect untuk elemen candi */
+        .glow-gold {
+            text-shadow: 0 0 10px rgba(212, 163, 89, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 flex flex-col md:flex-row h-screen w-screen relative">
+
+    <!-- Canvas Utama 3D -->
+    <div id="canvas-container" class="w-full h-full absolute inset-0 z-0"></div>
+
+    <!-- UI Overlay - Sisi Kiri / Atas (Informasi & Cerita Borobudur) -->
+    <div id="sidebar" class="absolute left-4 top-4 bottom-4 w-96 max-w-full bg-slate-950/85 backdrop-blur-md rounded-2xl border border-amber-900/40 p-6 flex flex-col justify-between z-10 transition-all duration-500 shadow-2xl overflow-y-auto max-h-[90vh] md:max-h-none">
+        <div>
+            <!-- Header -->
+            <div class="flex items-center space-x-3 mb-4">
+                <span class="bg-amber-500/10 border border-amber-500/30 text-amber-400 p-2.5 rounded-xl text-xl">
+                    <i class="fa-solid fa-gopuram"></i>
+                </span>
+                <div>
+                    <h1 class="serif-title text-2xl font-bold text-amber-400 tracking-wide">Borobudur VR</h1>
+                    <p class="text-xs text-amber-200/60 font-semibold tracking-widest uppercase">Eksplorasi Meditatif 3D</p>
+                </div>
+            </div>
+
+            <hr class="border-amber-900/30 my-4" />
+
+            <!-- Penjelasan Level Aktif -->
+            <div id="poi-card" class="mb-6 space-y-3">
+                <h2 id="poi-title" class="serif-title text-xl text-amber-300 font-semibold">Tingkatan Candi: Kamadhatu</h2>
+                <span id="poi-badge" class="inline-block px-2 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase rounded border border-amber-500/30">Dunia Keinginan</span>
+                <p id="poi-desc" class="text-gray-300 text-sm leading-relaxed">
+                    Tingkat paling bawah yang mewakili dunia luar/manusia yang masih terikat oleh nafsu, keinginan, dan hukum karma. Lingkungan sekitarnya dikelilingi oleh taman hijau Aksobya yang asri dan rindang.
+                </p>
+            </div>
+
+            <!-- Panduan Kontrol -->
+            <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl text-xs space-y-2 mb-6">
+                <h3 class="font-bold text-gray-400 uppercase tracking-wider"><i class="fa-solid fa-gamepad mr-2"></i>Kontrol Navigasi:</h3>
+                <ul class="space-y-1 text-gray-300">
+                    <li><span class="text-amber-400 font-semibold">Klik Kiri + Seret:</span> Memutar Sudut Pandang</li>
+                    <li><span class="text-amber-400 font-semibold">Klik Kanan + Seret:</span> Menggeser Kamera</li>
+                    <li><span class="text-amber-400 font-semibold">Scroll / Cubit:</span> Zoom In / Out</li>
+                    <li><span class="text-amber-400 font-semibold">Klik Stupa / POI:</span> Membaca Detail Informasi</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Tombol Interaksi Musik & Eksplorasi -->
+        <div class="space-y-3 pt-4 border-t border-amber-900/20">
+            <button id="btn-audio" onclick="toggleMeditationMusic()" class="w-full bg-amber-950/50 hover:bg-amber-900/50 border border-amber-500/30 text-amber-300 font-semibold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center space-x-2 text-sm">
+                <i class="fa-solid fa-music text-amber-400 animate-pulse"></i>
+                <span id="audio-text">Nyalakan Musik Meditasi</span>
+            </button>
+            <div class="grid grid-cols-2 gap-2 text-center text-xs">
+                <div class="bg-slate-900/60 py-2 px-3 rounded-lg border border-slate-800">
+                    <span class="block text-amber-400 font-bold" id="stupa-count">72</span>
+                    <span class="text-gray-500">Stupa Arupadhatu</span>
+                </div>
+                <div class="bg-slate-900/60 py-2 px-3 rounded-lg border border-slate-800">
+                    <span class="block text-amber-400 font-bold">10 Tingkat</span>
+                    <span class="text-gray-500">Kosmologi Buddha</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Overlay - Sisi Kanan (Kontrol Lingkungan & VR) -->
+    <div id="controls-panel" class="absolute right-4 top-4 flex flex-col space-y-3 z-10 items-end">
+        <!-- Panel Waktu Hari -->
+        <div class="bg-slate-950/80 backdrop-blur-md p-3 rounded-2xl border border-amber-900/30 flex space-x-2 shadow-xl">
+            <button id="btn-time-sunrise" onclick="changeTimeOfDay('sunrise', event)" title="Matahari Terbit (Sunrise)" class="time-btn bg-amber-500/10 hover:bg-amber-500/30 border border-amber-500/20 text-amber-400 p-2.5 rounded-xl transition">
+                <i class="fa-solid fa-cloud-sun text-lg"></i>
+            </button>
+            <button id="btn-time-noon" onclick="changeTimeOfDay('noon', event)" title="Siang Hari" class="time-btn bg-amber-500/10 hover:bg-amber-500/30 border border-amber-500/20 text-amber-400 p-2.5 rounded-xl transition">
+                <i class="fa-solid fa-sun text-lg"></i>
+            </button>
+            <button id="btn-time-sunset" onclick="changeTimeOfDay('sunset', event)" title="Matahari Terbenam (Sunset)" class="time-btn bg-amber-500/10 hover:bg-amber-500/30 border border-amber-500/20 text-amber-400 p-2.5 rounded-xl transition">
+                <i class="fa-solid fa-sun-plant-wilt text-lg"></i>
+            </button>
+            <button id="btn-time-night" onclick="changeTimeOfDay('night', event)" title="Malam Hari" class="time-btn bg-amber-500/10 hover:bg-amber-500/30 border border-amber-500/20 text-amber-400 p-2.5 rounded-xl transition">
+                <i class="fa-solid fa-moon text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Tombol Mode VR -->
+        <button id="btn-vr" onclick="toggleVRMode()" class="bg-gradient-to-r from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 text-white font-bold py-3 px-5 rounded-2xl shadow-xl border border-amber-400/30 transition flex items-center space-x-3 text-sm">
+            <i class="fa-solid fa-vr-cardboard text-xl"></i>
+            <span>Mode Virtual Reality</span>
+        </button>
+
+        <!-- Titik Fokus Pintasan / Teleport -->
+        <div class="bg-slate-950/80 backdrop-blur-md p-3 rounded-2xl border border-amber-900/30 flex flex-col space-y-1 w-48 shadow-xl">
+            <p class="text-[10px] font-bold text-amber-400 tracking-wider uppercase mb-2 text-center">Teleportasi Sudut Pandang</p>
+            <button onclick="teleportTo('base')" class="text-left text-xs hover:bg-amber-500/20 px-3 py-1.5 rounded-lg text-gray-300 transition flex items-center justify-between">
+                <span>Kamadhatu (Dasar)</span> <i class="fa-solid fa-location-arrow text-amber-500 text-[10px]"></i>
+            </button>
+            <button onclick="teleportTo('gallery')" class="text-left text-xs hover:bg-amber-500/20 px-3 py-1.5 rounded-lg text-gray-300 transition flex items-center justify-between">
+                <span>Rupadhatu (Lorong)</span> <i class="fa-solid fa-location-arrow text-amber-500 text-[10px]"></i>
+            </button>
+            <button onclick="teleportTo('top')" class="text-left text-xs hover:bg-amber-500/20 px-3 py-1.5 rounded-lg text-gray-300 transition flex items-center justify-between">
+                <span>Arupadhatu (Puncak)</span> <i class="fa-solid fa-location-arrow text-amber-500 text-[10px]"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Peringatan Petunjuk VR saat Diaktifkan -->
+    <div id="vr-guide" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/85 p-6 rounded-2xl border border-amber-500 text-center max-w-sm z-50">
+        <i class="fa-solid fa-mobile-screen-button text-4xl text-amber-400 mb-3 animate-bounce"></i>
+        <h3 class="serif-title text-xl text-amber-300 font-bold mb-2">Simulasi Headset VR Aktif</h3>
+        <p class="text-xs text-gray-300 leading-relaxed mb-4">
+            Masukkan perangkat Anda ke dalam Cardboard VR atau kacamata VR Anda. Gunakan navigasi sentuh untuk merubah sudut pandang atau memutar kepala.
+        </p>
+        <button onclick="toggleVRMode()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 px-4 rounded-xl text-xs transition">
+            Keluar Mode VR
+        </button>
+    </div>
+
+    <script>
+        // Variabel Global Three.js
+        let scene, camera, renderer, controls;
+        let ambientLight, mainLight, sunGlow;
+        let boroGroup; // Menampung semua komponen Candi Borobudur
+        let isVRMode = false;
+        let stereoEffect = null;
+        let skyMesh;
+        let audioCtx = null;
+        let ambientOsc = null, ambientGain = null;
+        let chimeInterval = null;
+        
+        // Array untuk menyimpan referensi lampu taman agar bisa dinyalakan/dimatikan sesuai waktu hari
+        let gardenLights = [];
+
+        // Informasi Tingkatan Borobudur (Kamadhatu, Rupadhatu, Arupadhatu)
+        const levelsInfo = {
+            kamadhatu: {
+                title: "Tingkatan Candi: Kamadhatu",
+                badge: "Dunia Keinginan (Kaki Candi)",
+                desc: "Tingkat paling bawah yang mewakili dunia luar/manusia yang masih terikat oleh nafsu, keinginan, dan hukum karma. Lingkungan luarnya dikelilingi taman hijau Aksobya yang asri dengan jalan setapak batu andesit, barisan pohon peneduh, serta pemandangan perbukitan Menore."
+            },
+            rupadhatu: {
+                title: "Tingkatan Candi: Rupadhatu",
+                badge: "Dunia Berbentuk (Lorong Galeri)",
+                desc: "Tingkat menengah yang terdiri dari 4 galeri berlorong persegi. Mewakili fase manusia yang mulai membebaskan diri dari nafsu duniawi namun masih terikat oleh nama dan rupa bentuk fisik. Dindingnya dihiasi oleh ribuan relief Lalitawistara, Jataka, dan Awadana yang sangat indah."
+            },
+            arupadhatu: {
+                title: "Tingkatan Candi: Arupadhatu",
+                badge: "Dunia Tanpa Bentuk (Teras Lingkaran)",
+                desc: "Tingkat tertinggi berupa tiga teras melingkar yang melambangkan kemurnian sejati dan kebebasan total dari rupa fisik. Di sini terdapat 72 stupa berlubang belah ketupat dan lingkaran yang menyelimuti patung Buddha di dalamnya, mengitari Stupa Induk Agung di pusat tertinggi."
+            }
+        };
+
+        // Memulai scene saat window dimuat sepenuhnya
+        window.onload = function() {
+            init3D();
+            buildBorobudur();
+            addEnvironment();
+            setupControls();
+            animate();
+            
+            // Atur default waktu ke Sunrise agar dramatis
+            changeTimeOfDay('sunrise');
+        };
+
+        // Fungsi inisialisasi dasar Three.js
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x111625, 0.01);
+
+            // Kamera
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 40, 110); // Mundur sedikit agar taman terlihat luas
+
+            // WebGL Renderer dengan bayangan lembut
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            container.appendChild(renderer.domElement);
+
+            // Orbit Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.02; // Mencegah kamera menembus tanah
+            controls.minDistance = 5;
+            controls.maxDistance = 220;
+
+            // Responsif saat ukuran layar berubah
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // Fungsi pembuat tekstur batu andesit Borobudur prosedural
+        function createAndesiteTexture(isRelief = false) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // 1. Warna Dasar Batuan Andesit Vulkanik
+            ctx.fillStyle = '#2c2e30';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // 2. Efek Noise Halus untuk Porositas Alami Batu
+            const numNoiseSpots = 150000;
+            for (let i = 0; i < numNoiseSpots; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const size = Math.random() * 1.5;
+                const grayValue = Math.floor(Math.random() * 60) - 30;
+                
+                if (Math.random() > 0.4) {
+                    ctx.fillStyle = `rgba(${44 + grayValue}, ${46 + grayValue}, ${48 + grayValue}, 0.65)`;
+                } else {
+                    ctx.fillStyle = `rgba(${120 + grayValue}, ${115 + grayValue}, ${110 + grayValue}, 0.2)`;
+                }
+                ctx.fillRect(x, y, size, size);
+            }
+
+            // 3. Efek Grunge/Noda Lumut Lapuk Alami (Erosi batu purbakala)
+            for (let i = 0; i < 30; i++) {
+                const gradX = Math.random() * 512;
+                const gradY = Math.random() * 512;
+                const radius = 20 + Math.random() * 80;
+                const grad = ctx.createRadialGradient(gradX, gradY, 0, gradX, gradY, radius);
+                
+                const mossColor = Math.random() > 0.5 ? 'rgba(38, 50, 34, 0.45)' : 'rgba(15, 15, 15, 0.7)';
+                grad.addColorStop(0, mossColor);
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(gradX, gradY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 4. Struktur Sambungan Batu Candi (Garis grid tipis)
+            ctx.strokeStyle = '#121314';
+            ctx.lineWidth = 2.5;
+            
+            for (let y = 0; y < 512; y += 64) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(512, y);
+                ctx.stroke();
+
+                const offset = (y % 128 === 0) ? 32 : 0;
+                for (let x = offset; x < 512; x += 128) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x, y + 64);
+                    ctx.stroke();
+                }
+            }
+
+            // 5. Khusus Dinding Relief: Gambarkan ukiran prosedural (Ornamen Teratai Buddha & Figur)
+            if (isRelief) {
+                ctx.strokeStyle = 'rgba(15, 15, 15, 0.7)';
+                ctx.fillStyle = 'rgba(20, 20, 20, 0.35)';
+                ctx.lineWidth = 3;
+
+                const centers = [
+                    {x: 64, y: 32}, {x: 192, y: 32}, {x: 320, y: 32}, {x: 448, y: 32},
+                    {x: 128, y: 96}, {x: 384, y: 96},
+                    {x: 64, y: 160}, {x: 192, y: 160}, {x: 320, y: 160}, {x: 448, y: 160}
+                ];
+
+                centers.forEach(c => {
+                    ctx.beginPath();
+                    ctx.arc(c.x, c.y, 16, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fill();
+
+                    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+                        ctx.beginPath();
+                        ctx.moveTo(c.x, c.y);
+                        ctx.lineTo(c.x + Math.cos(a) * 24, c.y + Math.sin(a) * 24);
+                        ctx.stroke();
+                    }
+                });
+
+                for (let j = 0; j < 50; j++) {
+                    ctx.strokeStyle = 'rgba(10, 10, 10, 0.5)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    const rx = Math.random() * 512;
+                    const ry = Math.random() * 512;
+                    ctx.moveTo(rx, ry);
+                    ctx.bezierCurveTo(rx+10, ry+5, rx-10, ry+20, rx+5, ry+30);
+                    ctx.stroke();
+                }
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        // Fungsi pembangun Candi Borobudur Utama (Struktur batu megah)
+        function buildBorobudur() {
+            boroGroup = new THREE.Group();
+            scene.add(boroGroup);
+
+            const andesiteTex = createAndesiteTexture(false);
+            const reliefTex = createAndesiteTexture(true);
+
+            andesiteTex.repeat.set(8, 8);
+            reliefTex.repeat.set(6, 6);
+
+            const stoneMat = new THREE.MeshStandardMaterial({
+                map: andesiteTex,
+                roughness: 0.95,
+                metalness: 0.05,
+                bumpMap: andesiteTex,
+                bumpScale: 0.04
+            });
+
+            const reliefMat = new THREE.MeshStandardMaterial({
+                map: reliefTex,
+                roughness: 0.92,
+                metalness: 0.05,
+                bumpMap: reliefTex,
+                bumpScale: 0.06
+            });
+
+            // TINGKAT 1-3: KAMADHATU & RUPADHATU
+            const squareLevels = [
+                { size: 60, height: 6.0, y: 3.0, info: 'kamadhatu', mat: stoneMat },
+                { size: 48, height: 5.5, y: 8.75, info: 'rupadhatu', mat: reliefMat },
+                { size: 38, height: 5.0, y: 14.0, info: 'rupadhatu', mat: reliefMat }
+            ];
+
+            squareLevels.forEach((lvl, idx) => {
+                const geom = new THREE.BoxGeometry(lvl.size, lvl.height, lvl.size);
+                const mesh = new THREE.Mesh(geom, lvl.mat);
+                mesh.position.y = lvl.y;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData = { levelInfo: lvl.info };
+                boroGroup.add(mesh);
+
+                createStairWaydecorations(lvl.size, lvl.height, lvl.y, stoneMat);
+            });
+
+            // TINGKAT 4-6: ARUPADHATU (Teras Melingkar)
+            const circularLevels = [
+                { rOut: 14, rIn: 13, h: 2.2, y: 17.6, stupaRadius: 13.5, stupaCount: 32, scaleY: 1.0 },
+                { rOut: 11, rIn: 10, h: 2.2, y: 19.8, stupaRadius: 10.5, stupaCount: 24, scaleY: 1.0 },
+                { rOut: 8, rIn: 7, h: 2.2, y: 22.0, stupaRadius: 7.5, stupaCount: 16, scaleY: 1.0 }
+            ];
+
+            circularLevels.forEach((lvl) => {
+                const geom = new THREE.CylinderGeometry(lvl.rOut - 1.0, lvl.rOut, lvl.h, 48);
+                const mesh = new THREE.Mesh(geom, stoneMat);
+                mesh.position.y = lvl.y;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData = { levelInfo: 'arupadhatu' };
+                boroGroup.add(mesh);
+
+                for (let i = 0; i < lvl.stupaCount; i++) {
+                    const angle = (i / lvl.stupaCount) * Math.PI * 2;
+                    const sx = Math.cos(angle) * lvl.stupaRadius;
+                    const sz = Math.sin(angle) * lvl.stupaRadius;
+                    
+                    const smallStupa = createStupaGeometry(0.85, 1.6, stoneMat, true);
+                    smallStupa.position.set(sx, lvl.y + lvl.h/2 + 0.1, sz);
+                    boroGroup.add(smallStupa);
+                }
+            });
+
+            // TINGKAT 7: STUPA INDUK AGUNG (Maha Stupa)
+            const mainStupa = createStupaGeometry(3.5, 6.5, stoneMat, false);
+            mainStupa.position.set(0, 23.1 + 3.25, 0);
+            mainStupa.userData = { levelInfo: 'arupadhatu', isMainStupa: true };
+            boroGroup.add(mainStupa);
+
+            const baseMainGeom = new THREE.CylinderGeometry(4.5, 5.0, 1.2, 32);
+            const baseMainMesh = new THREE.Mesh(baseMainGeom, stoneMat);
+            baseMainMesh.position.set(0, 23.7, 0);
+            boroGroup.add(baseMainMesh);
+
+            // MEMBUAT TANGGA BATU DI KEEMPAT SISI BUKIT (Utara, Selatan, Timur, Barat)
+            buildHillStaircases(stoneMat);
+        }
+
+        // Pembangun tangga batu dari dasar bukit (-12) hingga kaki candi (0)
+        function buildHillStaircases(stoneMat) {
+            const stairsDirections = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
+            const stepCount = 40; // Menambah jumlah anak tangga agar lebih halus
+            const stairWidth = 8.5;
+            const stepHeight = 0.4;
+            const stepDepth = 2.0;
+
+            stairsDirections.forEach(angle => {
+                for (let i = 0; i < stepCount; i++) {
+                    const t = i / (stepCount - 1);
+                    const r = 88 - (88 - 31) * t;
+                    const y = -11.8 + 11.8 * t;
+
+                    const stepGeom = new THREE.BoxGeometry(stairWidth, stepHeight, stepDepth);
+                    const step = new THREE.Mesh(stepGeom, stoneMat);
+                    
+                    step.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
+                    step.rotation.y = -angle;
+                    step.castShadow = true;
+                    step.receiveShadow = true;
+                    step.userData = { levelInfo: 'kamadhatu' };
+                    boroGroup.add(step);
+
+                    // Menambahkan dinding pembatas (Batur) di sisi kiri dan kanan tangga
+                    const railHeight = 1.0;
+                    const railWidth = 0.6;
+                    const railGeom = new THREE.BoxGeometry(railWidth, railHeight, stepDepth);
+                    const railL = new THREE.Mesh(railGeom, stoneMat);
+                    const railR = new THREE.Mesh(railGeom, stoneMat);
+
+                    // Posisi relatif di sisi tangga
+                    const offset = stairWidth / 2 + railWidth / 2;
+                    railL.position.set(
+                        Math.cos(angle) * r + Math.sin(angle) * offset,
+                        y + (railHeight + stepHeight) / 2,
+                        Math.sin(angle) * r - Math.cos(angle) * offset
+                    );
+                    railR.position.set(
+                        Math.cos(angle) * r - Math.sin(angle) * offset,
+                        y + (railHeight + stepHeight) / 2,
+                        Math.sin(angle) * r + Math.cos(angle) * offset
+                    );
+                    
+                    railL.rotation.y = -angle;
+                    railR.rotation.y = -angle;
+                    boroGroup.add(railL);
+                    boroGroup.add(railR);
+
+                    // Penempatan lampu di setiap beberapa anak tangga agar jalur lebih terang
+                    if (i % 8 === 0 && i > 0) {
+                        const offsetDistance = stairWidth / 2 + 1.2;
+                        const dxL = -Math.sin(angle) * offsetDistance;
+                        const dzL = Math.cos(angle) * offsetDistance;
+                        const dxR = Math.sin(angle) * offsetDistance;
+                        const dzR = -Math.cos(angle) * offsetDistance;
+
+                        createGardenLamp(step.position.x + dxL, y, step.position.z + dzL);
+                        createGardenLamp(step.position.x + dxR, y, step.position.z + dzR);
+                    }
+                }
+            });
+        }
+
+        // Fungsi pembuat lampu taman (Garden Lamp) interaktif dengan cahaya warm-glow
+        function createGardenLamp(x, y, z) {
+            const lampGroup = new THREE.Group();
+            lampGroup.position.set(x, y, z);
+
+            // 1. Tiang Logam Hitam Lampu
+            const postGeom = new THREE.CylinderGeometry(0.08, 0.12, 3.2, 8);
+            const postMat = new THREE.MeshStandardMaterial({ color: 0x1d1f21, roughness: 0.8 });
+            const post = new THREE.Mesh(postGeom, postMat);
+            post.position.y = 1.6;
+            post.castShadow = true;
+            lampGroup.add(post);
+
+            // 2. Kepala Lentera (Kaca & Penutup)
+            const capGeom = new THREE.CylinderGeometry(0.35, 0.25, 0.5, 6);
+            const cap = new THREE.Mesh(capGeom, postMat);
+            cap.position.y = 3.35;
+            lampGroup.add(cap);
+
+            // 3. Bola Kaca Lentera Glowing (Lampu pijar)
+            const lanternGeom = new THREE.SphereGeometry(0.28, 8, 8);
+            const lanternMat = new THREE.MeshStandardMaterial({
+                color: 0xffe0a5,
+                emissive: 0xffaa44,
+                emissiveIntensity: 0.0, // Diperbarui dinamis di changeTimeOfDay
+                roughness: 0.1
+            });
+            const lantern = new THREE.Mesh(lanternGeom, lanternMat);
+            lantern.position.y = 3.0;
+            lampGroup.add(lantern);
+
+            // 4. Sumber Cahaya PointLight (Dihubungkan ke sistem siang/malam, bayangan dimatikan demi performa optimal)
+            const warmLight = new THREE.PointLight(0xff9933, 0.0, 15);
+            warmLight.position.set(0, 3.0, 0);
+            lampGroup.add(warmLight);
+
+            scene.add(lampGroup);
+
+            // Simpan referensi ke array global untuk pengaturan waktu
+            gardenLights.push({
+                light: warmLight,
+                material: lanternMat
+            });
+        }
+
+        function createStairWaydecorations(size, height, y, material) {
+            const cornerOffset = size / 2;
+            const corners = [
+                {x: cornerOffset, z: cornerOffset},
+                {x: -cornerOffset, z: cornerOffset},
+                {x: cornerOffset, z: -cornerOffset},
+                {x: -cornerOffset, z: -cornerOffset}
+            ];
+
+            corners.forEach(c => {
+                const cornerBoxGeom = new THREE.BoxGeometry(2, height + 1, 2);
+                const cornerBox = new THREE.Mesh(cornerBoxGeom, material);
+                cornerBox.position.set(c.x, y + 0.5, c.z);
+                cornerBox.castShadow = true;
+                cornerBox.receiveShadow = true;
+                boroGroup.add(cornerBox);
+
+                const ratnaGeom = new THREE.ConeGeometry(0.7, 1.8, 8);
+                const ratna = new THREE.Mesh(ratnaGeom, material);
+                ratna.position.set(c.x, y + height/2 + 1.4, c.z);
+                boroGroup.add(ratna);
+            });
+        }
+
+        function createStupaGeometry(radius, height, material, isLattice = true) {
+            const stupaGroup = new THREE.Group();
+
+            const baseGeom = new THREE.CylinderGeometry(radius * 1.1, radius * 1.15, height * 0.25, 16);
+            const baseMesh = new THREE.Mesh(baseGeom, material);
+            baseMesh.position.y = height * 0.125;
+            baseMesh.castShadow = true;
+            stupaGroup.add(baseMesh);
+
+            const domeGeom = new THREE.SphereGeometry(radius, 16, 12, 0, Math.PI * 2, 0, Math.PI / 1.7);
+            
+            let domeMesh;
+            if (isLattice) {
+                const latticeTex = createLatticeTexture();
+                const latticeMat = new THREE.MeshStandardMaterial({
+                    map: material.map,
+                    roughness: 0.9,
+                    alphaMap: latticeTex,
+                    transparent: true,
+                    side: THREE.DoubleSide,
+                    bumpMap: material.map,
+                    bumpScale: 0.03
+                });
+                domeMesh = new THREE.Mesh(domeGeom, latticeMat);
+            } else {
+                domeMesh = new THREE.Mesh(domeGeom, material);
+            }
+            domeMesh.scale.set(1, 0.9, 1);
+            domeMesh.position.y = height * 0.25;
+            domeMesh.castShadow = true;
+            stupaGroup.add(domeMesh);
+
+            const spireGeom = new THREE.CylinderGeometry(radius * 0.1, radius * 0.2, height * 0.6, 8);
+            const spireMesh = new THREE.Mesh(spireGeom, material);
+            spireMesh.position.y = height * 0.8;
+            spireMesh.castShadow = true;
+            stupaGroup.add(spireMesh);
+
+            const crownGeom = new THREE.CylinderGeometry(radius * 0.25, radius * 0.25, height * 0.08, 8);
+            const crownMesh = new THREE.Mesh(crownGeom, material);
+            crownMesh.position.y = height * 1.1;
+            stupaGroup.add(crownMesh);
+
+            if (isLattice) {
+                const buddhaMat = new THREE.MeshStandardMaterial({
+                    color: 0x9c8254,
+                    roughness: 0.4,
+                    metalness: 0.8
+                });
+                const buddhaGeom = new THREE.ConeGeometry(radius * 0.5, height * 0.5, 4);
+                const buddha = new THREE.Mesh(buddhaGeom, buddhaMat);
+                buddha.position.y = height * 0.35;
+                buddha.rotation.y = Math.PI / 4;
+                stupaGroup.add(buddha);
+            }
+
+            return stupaGroup;
+        }
+
+        function createLatticeTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 128, 128);
+
+            ctx.fillStyle = '#000000';
+            
+            ctx.beginPath();
+            ctx.moveTo(64, 16);
+            ctx.lineTo(112, 64);
+            ctx.lineTo(64, 112);
+            ctx.lineTo(16, 64);
+            ctx.closePath();
+            ctx.fill();
+
+            const corners = [[0,0], [128,0], [0,128], [128,128]];
+            corners.forEach(c => {
+                ctx.beginPath();
+                ctx.moveTo(c[0], c[1] - 20);
+                ctx.lineTo(c[0] + 20, c[1]);
+                ctx.lineTo(c[0], c[1] + 20);
+                ctx.lineTo(c[0] - 20, c[1]);
+                ctx.closePath();
+                ctx.fill();
+            });
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(8, 4);
+            return texture;
+        }
+
+        // Generator Pohon Rindang Jawa (Shade Tree)
+        function createShadeTree() {
+            const treeGroup = new THREE.Group();
+
+            // Batang Pohon
+            const trunkHeight = 6 + Math.random() * 4;
+            const trunkGeom = new THREE.CylinderGeometry(0.3, 0.6, trunkHeight, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({
+                color: 0x4a3319,
+                roughness: 0.9,
+                flatShading: true
+            });
+            const trunk = new THREE.Mesh(trunkGeom, trunkMat);
+            trunk.position.y = trunkHeight / 2;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            treeGroup.add(trunk);
+
+            // Daun Rindang (Menggunakan gabungan beberapa bola acak untuk bentuk organik)
+            const foliageGroup = new THREE.Group();
+            foliageGroup.position.y = trunkHeight;
+            
+            const colors = [0x223c15, 0x2e511d, 0x1b3010];
+            const spheresCount = 5 + Math.floor(Math.random() * 4);
+            
+            for (let i = 0; i < spheresCount; i++) {
+                const size = 2.5 + Math.random() * 2;
+                const leafGeom = new THREE.DodecahedronGeometry(size, 1);
+                const leafMat = new THREE.MeshStandardMaterial({
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    roughness: 0.95,
+                    flatShading: true
+                });
+                const leafMesh = new THREE.Mesh(leafGeom, leafMat);
+                
+                leafMesh.position.set(
+                    (Math.random() - 0.5) * 3,
+                    Math.random() * 3,
+                    (Math.random() - 0.5) * 3
+                );
+                leafMesh.castShadow = true;
+                leafMesh.receiveShadow = true;
+                foliageGroup.add(leafMesh);
+            }
+            treeGroup.add(foliageGroup);
+
+            const finalScale = 0.8 + Math.random() * 0.4;
+            treeGroup.scale.set(finalScale, finalScale, finalScale);
+
+            return treeGroup;
+        }
+
+        // Generator Pohon Palem Kelapa (Palm Tree)
+        function createPalmTree() {
+            const palmGroup = new THREE.Group();
+
+            const segments = 10;
+            const segmentHeight = 0.8;
+            let currentY = 0;
+            const curveFactor = 0.15 * (Math.random() > 0.5 ? 1 : -1);
+
+            const trunkMat = new THREE.MeshStandardMaterial({
+                color: 0x5c4a3c,
+                roughness: 0.85
+            });
+
+            for (let i = 0; i < segments; i++) {
+                const geom = new THREE.CylinderGeometry(0.18 - (i * 0.008), 0.22 - (i * 0.008), segmentHeight, 8);
+                const seg = new THREE.Mesh(geom, trunkMat);
+                
+                seg.position.y = currentY + segmentHeight / 2;
+                seg.position.x = Math.sin(i / segments * Math.PI / 2) * curveFactor * i;
+                seg.rotation.z = -(i / segments) * curveFactor * 0.5;
+
+                seg.castShadow = true;
+                seg.receiveShadow = true;
+                palmGroup.add(seg);
+                currentY += segmentHeight;
+            }
+
+            const leavesCount = 8 + Math.floor(Math.random() * 4);
+            const leavesGroup = new THREE.Group();
+            leavesGroup.position.set(Math.sin(Math.PI / 2) * curveFactor * (segments - 1), currentY, 0);
+            leavesGroup.rotation.z = -curveFactor * 0.5;
+
+            for (let i = 0; i < leavesCount; i++) {
+                const leafAngle = (i / leavesCount) * Math.PI * 2;
+                const leafLength = 3 + Math.random() * 1.5;
+                
+                const leafGeom = new THREE.BoxGeometry(leafLength, 0.05, 0.4);
+                leafGeom.translate(leafLength / 2, 0, 0);
+                
+                const leafMat = new THREE.MeshStandardMaterial({
+                    color: 0x3d681d,
+                    roughness: 0.9,
+                    flatShading: true
+                });
+                
+                const leaf = new THREE.Mesh(leafGeom, leafMat);
+                leaf.rotation.y = leafAngle;
+                leaf.rotation.z = -0.3 - Math.random() * 0.2;
+
+                leaf.castShadow = true;
+                leavesGroup.add(leaf);
+            }
+            palmGroup.add(leavesGroup);
+
+            const scale = 0.9 + Math.random() * 0.3;
+            palmGroup.scale.set(scale, scale, scale);
+
+            return palmGroup;
+        }
+
+        // Fungsi penyusun lingkungan eksternal (Bukit, Taman, Jalan, Pohon, Gunung, Lampu)
+        function addEnvironment() {
+            // 1. Bukit Hijau Tempat Candi Berdiri
+            const hillGeom = new THREE.CylinderGeometry(40, 95, 12, 32);
+            const hillMat = new THREE.MeshStandardMaterial({
+                color: 0x2e491c, // Hijau rumput taman subur
+                roughness: 0.9,
+                flatShading: true
+            });
+            const hill = new THREE.Mesh(hillGeom, hillMat);
+            hill.position.y = -6.0;
+            hill.receiveShadow = true;
+            scene.add(hill);
+
+            // Dataran Taman Luas Di Sekeliling (Taman Aksobya & Kenari)
+            const groundGeom = new THREE.PlaneGeometry(1200, 1200);
+            const groundMat = new THREE.MeshStandardMaterial({
+                color: 0x223b13,
+                roughness: 0.98
+            });
+            const ground = new THREE.Mesh(groundGeom, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -12.0;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 2. Pembuatan Jalan Setapak & Pelataran Batu Andesit (Pathways)
+            // Ring Jalan Utama di dasar bukit candi (Radius 96 sampai 105)
+            const pathRingGeom = new THREE.RingGeometry(96, 105, 64);
+            const pathMat = new THREE.MeshStandardMaterial({
+                color: 0x484b4d, // Batu andesit abu-abu jalan setapak asli
+                roughness: 0.9,
+                side: THREE.DoubleSide
+            });
+            const pathRing = new THREE.Mesh(pathRingGeom, pathMat);
+            pathRing.rotation.x = -Math.PI / 2;
+            pathRing.position.y = -11.95;
+            pathRing.receiveShadow = true;
+            scene.add(pathRing);
+
+            // Jalur Lorong Lurus (4 Jalan Setapak Radial Utama dari dasar bukit keluar sepanjang 60 meter)
+            const pathDirections = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
+            pathDirections.forEach(angle => {
+                const roadGeom = new THREE.PlaneGeometry(10, 60);
+                const road = new THREE.Mesh(roadGeom, pathMat);
+                road.rotation.x = -Math.PI / 2;
+                road.rotation.z = angle;
+                
+                // Dimulai dari ujung bawah bukit (R = 88) memanjang keluar ke R = 148. Titik tengah di R = 118.
+                const radiusDist = 118;
+                road.position.set(Math.cos(angle) * radiusDist, -11.95, Math.sin(angle) * radiusDist);
+                road.receiveShadow = true;
+                scene.add(road);
+
+                // Taruh Lampu Taman di sepanjang sisi kiri-kanan jalan setapak datar ini
+                const roadLampsR = [110, 132];
+                roadLampsR.forEach(r => {
+                    const offsetDistance = 4.5; // Setengah lebar jalan 5 meter
+                    const dxL = -Math.sin(angle) * offsetDistance;
+                    const dzL = Math.cos(angle) * offsetDistance;
+                    const dxR = Math.sin(angle) * offsetDistance;
+                    const dzR = -Math.cos(angle) * offsetDistance;
+
+                    createGardenLamp(Math.cos(angle) * r + dxL, -11.95, Math.sin(angle) * r + dzL);
+                    createGardenLamp(Math.cos(angle) * r + dxR, -11.95, Math.sin(angle) * r + dzR);
+                });
+            });
+
+            // 3. Menghias Taman Dengan Pepohonan Rindang Jawa & Palem Khas Borobudur
+            const envGroup = new THREE.Group();
+            scene.add(envGroup);
+
+            // Taruh pohon-pohon di luar batas bukit candi secara estetik
+            const treesCount = 75;
+            for (let i = 0; i < treesCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 110 + Math.random() * 180;
+                const x = Math.cos(angle) * distance;
+                const z = Math.sin(angle) * distance;
+
+                // Hindari menanam pohon tepat di atas jalan setapak radial utama
+                let onRoad = false;
+                pathDirections.forEach(roadAngle => {
+                    const diff = Math.abs(angle - roadAngle);
+                    if (diff < 0.12 || Math.abs(diff - Math.PI * 2) < 0.12) {
+                        onRoad = true;
+                    }
+                });
+
+                if (!onRoad) {
+                    const isPalm = Math.random() > 0.6;
+                    const tree = isPalm ? createPalmTree() : createShadeTree();
+                    tree.position.set(x, -12.0, z);
+                    envGroup.add(tree);
+                }
+            }
+
+            // Hiasan Semak di Sepanjang Sisi Jalan Setapak Utama
+            for (let r = 0; r < 24; r++) {
+                const angle = (r / 24) * Math.PI * 2;
+                const bushGeom = new THREE.DodecahedronGeometry(0.8 + Math.random() * 0.8, 1);
+                const bushMat = new THREE.MeshStandardMaterial({
+                    color: Math.random() > 0.5 ? 0x2e5a1c : 0x567d16,
+                    roughness: 0.95
+                });
+                const bush = new THREE.Mesh(bushGeom, bushMat);
+                bush.position.set(Math.cos(angle) * 94.5, -11.8, Math.sin(angle) * 94.5);
+                bush.castShadow = true;
+                scene.add(bush);
+            }
+
+            // 4. Pegunungan Menoreh Purba di Latar Belakang Jauh
+            const mountainGroup = new THREE.Group();
+            scene.add(mountainGroup);
+
+            const mountainMat = new THREE.MeshStandardMaterial({
+                color: 0x0c1e2d,
+                roughness: 0.99,
+                flatShading: true
+            });
+
+            const mountainConfigs = [
+                { r: 70, h: 120, x: -310, z: -350 },
+                { r: 90, h: 140, x: 260, z: -400 },
+                { r: 60, h: 80, x: -400, z: 200 },
+                { r: 80, h: 100, x: 420, z: 300 }
+            ];
+
+            mountainConfigs.forEach(cfg => {
+                const mGeom = new THREE.ConeGeometry(cfg.r, cfg.h, 4);
+                const mountain = new THREE.Mesh(mGeom, mountainMat);
+                mountain.position.set(cfg.x, cfg.h / 2 - 20, cfg.z);
+                mountainGroup.add(mountain);
+            });
+
+            // 5. Kubah Langit Dinamis
+            const skyGeom = new THREE.SphereGeometry(600, 32, 15);
+            const skyMat = new THREE.MeshBasicMaterial({
+                color: 0x050c1e,
+                side: THREE.BackSide
+            });
+            skyMesh = new THREE.Mesh(skyGeom, skyMat);
+            scene.add(skyMesh);
+
+            // 6. Pencahayaan Utama (Matahari / Bulan)
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
+            scene.add(ambientLight);
+
+            mainLight = new THREE.DirectionalLight(0xffedd3, 1.2);
+            mainLight.position.set(120, 60, 60);
+            mainLight.castShadow = true;
+            
+            mainLight.shadow.mapSize.width = 2048;
+            mainLight.shadow.mapSize.height = 2048;
+            mainLight.shadow.camera.near = 0.5;
+            mainLight.shadow.camera.far = 800;
+            const d = 120;
+            mainLight.shadow.camera.left = -d;
+            mainLight.shadow.camera.right = d;
+            mainLight.shadow.camera.top = d;
+            mainLight.shadow.camera.bottom = -d;
+            scene.add(mainLight);
+
+            const sunGeom = new THREE.SphereGeometry(25, 16, 16);
+            const sunMat = new THREE.MeshBasicMaterial({ color: 0xffe2a3 });
+            sunGlow = new THREE.Mesh(sunGeom, sunMat);
+            scene.add(sunGlow);
+        }
+
+        // Pengatur Waktu Hari yang secara otomatis menyalakan/meredupkan lampu taman
+        function changeTimeOfDay(time, eventObj = null) {
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.remove('bg-amber-500/30', 'border-amber-400');
+                btn.classList.add('bg-amber-500/10');
+            });
+
+            let activeBtn = null;
+            if (eventObj && eventObj.currentTarget) {
+                activeBtn = eventObj.currentTarget;
+            } else {
+                activeBtn = document.getElementById(`btn-time-${time}`);
+            }
+
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-amber-500/10');
+                activeBtn.classList.add('bg-amber-500/30', 'border-amber-400');
+            }
+
+            // Atur intensitas lampu taman (warm glow) dan kecerahan lentera kaca berdasarkan waktu hari
+            let lampLightIntensity = 0.0;
+            let lampEmissiveIntensity = 0.0;
+
+            switch(time) {
+                case 'sunrise': // Sunrise Keemasan Berkabut
+                    scene.background = new THREE.Color(0xf69c46);
+                    scene.fog.color = new THREE.Color(0x352118);
+                    scene.fog.density = 0.009;
+                    ambientLight.color.setHex(0xb26b43);
+                    ambientLight.intensity = 0.45;
+                    mainLight.color.setHex(0xffaa5e);
+                    mainLight.intensity = 1.3;
+                    mainLight.position.set(220, 25, -120);
+                    sunGlow.position.set(380, 45, -200);
+                    sunGlow.visible = true;
+
+                    lampLightIntensity = 0.7;
+                    lampEmissiveIntensity = 0.6;
+                    break;
+                    
+                case 'noon': // Siang Hari Terang Tropis
+                    scene.background = new THREE.Color(0x6eb5e5);
+                    scene.fog.color = new THREE.Color(0x9bd8ff);
+                    scene.fog.density = 0.003;
+                    ambientLight.color.setHex(0xffffff);
+                    ambientLight.intensity = 0.75;
+                    mainLight.color.setHex(0xfffdf2);
+                    mainLight.intensity = 1.5;
+                    mainLight.position.set(40, 180, 80);
+                    sunGlow.position.set(80, 350, 160);
+                    sunGlow.visible = true;
+
+                    lampLightIntensity = 0.0;
+                    lampEmissiveIntensity = 0.0;
+                    break;
+
+                case 'sunset': // Senja Magis Merah Bata
+                    scene.background = new THREE.Color(0xbb3f2c);
+                    scene.fog.color = new THREE.Color(0x2d121c);
+                    scene.fog.density = 0.008;
+                    ambientLight.color.setHex(0xe06040);
+                    ambientLight.intensity = 0.4;
+                    mainLight.color.setHex(0xff7c47);
+                    mainLight.intensity = 1.15;
+                    mainLight.position.set(-220, 20, -100);
+                    sunGlow.position.set(-380, 35, -180);
+                    sunGlow.visible = true;
+
+                    lampLightIntensity = 1.2;
+                    lampEmissiveIntensity = 1.0;
+                    break;
+
+                case 'night': // Malam Purnama Syahdu (Lampu taman berpijar penuh!)
+                    scene.background = new THREE.Color(0x020510);
+                    scene.fog.color = new THREE.Color(0x050b18);
+                    scene.fog.density = 0.011;
+                    ambientLight.color.setHex(0x314663);
+                    ambientLight.intensity = 0.22;
+                    mainLight.color.setHex(0xd0e2ff);
+                    mainLight.intensity = 0.65;
+                    mainLight.position.set(-150, 130, 110);
+                    sunGlow.position.set(-280, 240, 200);
+                    sunGlow.visible = true;
+
+                    lampLightIntensity = 2.2;
+                    lampEmissiveIntensity = 1.8;
+                    break;
+            }
+
+            // Perbarui seluruh lampu taman yang ada di dunia 3D
+            gardenLights.forEach(lamp => {
+                if (lamp.light) lamp.light.intensity = lampLightIntensity;
+                if (lamp.material) lamp.material.emissiveIntensity = lampEmissiveIntensity;
+            });
+        }
+
+        function teleportTo(poiKey) {
+            let targetPos, lookAtTarget;
+            
+            switch(poiKey) {
+                case 'base': // Kamadhatu / Pelataran Utama
+                    targetPos = { x: 0, y: 15, z: 90 };
+                    lookAtTarget = new THREE.Vector3(0, 5, 0);
+                    updatePOICard('kamadhatu');
+                    break;
+                case 'gallery': // Rupadhatu / Lorong Pahat
+                    targetPos = { x: 30, y: 20, z: 30 };
+                    lookAtTarget = new THREE.Vector3(0, 14, 0);
+                    updatePOICard('rupadhatu');
+                    break;
+                case 'top': // Arupadhatu / Puncak Keheningan
+                    targetPos = { x: 0, y: 34, z: 24 };
+                    lookAtTarget = new THREE.Vector3(0, 26, 0);
+                    updatePOICard('arupadhatu');
+                    break;
+            }
+
+            let progress = 0;
+            const startPos = camera.position.clone();
+            
+            function slideCamera() {
+                progress += 0.04;
+                if (progress <= 1.0) {
+                    camera.position.x = THREE.MathUtils.lerp(startPos.x, targetPos.x, progress);
+                    camera.position.y = THREE.MathUtils.lerp(startPos.y, targetPos.y, progress);
+                    camera.position.z = THREE.MathUtils.lerp(startPos.z, targetPos.z, progress);
+                    controls.target.lerp(lookAtTarget, 0.08);
+                    requestAnimationFrame(slideCamera);
+                }
+            }
+            slideCamera();
+        }
+
+        function updatePOICard(levelKey) {
+            const data = levelsInfo[levelKey];
+            if (data) {
+                document.getElementById('poi-title').innerText = data.title;
+                document.getElementById('poi-badge').innerText = data.badge;
+                document.getElementById('poi-desc').innerText = data.desc;
+            }
+        }
+
+        function setupControls() {
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            window.addEventListener('click', (event) => {
+                if (event.target.tagName !== 'CANVAS') return;
+
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(boroGroup.children, true);
+
+                if (intersects.length > 0) {
+                    const hitMesh = intersects[0].object;
+                    let clickedMesh = hitMesh;
+
+                    while (clickedMesh && !clickedMesh.userData.levelInfo) {
+                        clickedMesh = clickedMesh.parent;
+                    }
+
+                    if (clickedMesh && clickedMesh.userData.levelInfo) {
+                        updatePOICard(clickedMesh.userData.levelInfo);
+                        
+                        if (hitMesh && hitMesh.material) {
+                            const materials = Array.isArray(hitMesh.material) ? hitMesh.material : [hitMesh.material];
+                            materials.forEach(mat => {
+                                if (mat && mat.emissive) {
+                                    const originalEmissive = mat.emissive.getHex();
+                                    mat.emissive.setHex(0x5c4212);
+                                    setTimeout(() => {
+                                        if (mat && mat.emissive) {
+                                            mat.emissive.setHex(originalEmissive);
+                                        }
+                                    }, 500);
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        function toggleVRMode() {
+            isVRMode = !isVRMode;
+            const container = document.getElementById('canvas-container');
+            const sidebar = document.getElementById('sidebar');
+            const controlsPanel = document.getElementById('controls-panel');
+            const vrGuide = document.getElementById('vr-guide');
+
+            if (isVRMode) {
+                sidebar.classList.add('opacity-0', 'pointer-events-none');
+                controlsPanel.classList.add('opacity-0', 'pointer-events-none');
+                vrGuide.classList.remove('hidden');
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            } else {
+                sidebar.classList.remove('opacity-0', 'pointer-events-none');
+                controlsPanel.classList.remove('opacity-0', 'pointer-events-none');
+                vrGuide.classList.add('hidden');
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                renderer.setScissorTest(false);
+            }
+            onWindowResize();
+        }
+
+        function toggleMeditationMusic() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                ambientOsc = audioCtx.createOscillator();
+                ambientGain = audioCtx.createGain();
+                
+                ambientOsc.type = 'sine';
+                ambientOsc.frequency.setValueAtTime(64.8, audioCtx.currentTime);
+                ambientGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                
+                ambientOsc.connect(ambientGain);
+                ambientGain.connect(audioCtx.destination);
+                ambientOsc.start();
+
+                const playGong = () => {
+                    const freqs = [194.18, 220.0, 258.0, 291.0, 324.0, 388.0];
+                    const randFreq = freqs[Math.floor(Math.random() * freqs.length)];
+                    
+                    const osc = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(randFreq, audioCtx.currentTime);
+                    
+                    gainNode.gain.setValueAtTime(0.0, audioCtx.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.1);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 6.0);
+                    
+                    osc.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 6.0);
+                };
+
+                playGong();
+                chimeInterval = setInterval(playGong, 4500);
+
+                document.getElementById('audio-text').innerText = "Matikan Musik Meditasi";
+                document.getElementById('btn-audio').classList.add('bg-amber-600/30');
+            } else {
+                if (ambientOsc) {
+                    ambientOsc.stop();
+                    ambientOsc.disconnect();
+                }
+                if (chimeInterval) {
+                    clearInterval(chimeInterval);
+                }
+                audioCtx.close();
+                audioCtx = null;
+                document.getElementById('audio-text').innerText = "Nyalakan Musik Meditasi";
+                document.getElementById('btn-audio').classList.remove('bg-amber-600/30');
+            }
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            const width = isVRMode ? window.innerWidth : container.clientWidth;
+            const height = isVRMode ? window.innerHeight : container.clientHeight;
+            
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        // Loop animasi utama WebGL
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (skyMesh) skyMesh.rotation.y += 0.00015;
+
+            controls.update();
+
+            if (isVRMode) {
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+
+                renderer.setScissorTest(true);
+
+                // Mata Kiri
+                camera.aspect = (width / 2) / height;
+                camera.updateProjectionMatrix();
+                
+                camera.position.x -= 0.15;
+                renderer.setViewport(0, 0, width / 2, height);
+                renderer.setScissor(0, 0, width / 2, height);
+                renderer.render(scene, camera);
+                
+                // Mata Kanan
+                camera.position.x += 0.30;
+                renderer.setViewport(width / 2, 0, width / 2, height);
+                renderer.setScissor(width / 2, 0, width / 2, height);
+                renderer.render(scene, camera);
+                
+                camera.position.x -= 0.15;
+            } else {
+                renderer.render(scene, camera);
+            }
+        }
+    </script>
+</body>
+</html>
